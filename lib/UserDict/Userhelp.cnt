@@ -1,0 +1,5 @@
+:Base Userhelp
+:Title Help on Users Dictionary
+1 Add a Word to the Dictionary=add_word_menu@userhelp.hlp
+1 Delete a Word from the Dictionary=delete_word_menu@userhelp.hlp
+1 View Entries in the Dictionary=view_dict_menu@userhelp.hlp
