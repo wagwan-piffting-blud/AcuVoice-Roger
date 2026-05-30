@@ -1,16 +1,16 @@
 # AcuVoice Roger SAPI5 voice
 
-A SAPI5 voice that lets Windows apps speak via the AcuVoice "Roger" TTS voice. Built from a full-fat copy of the AcuVoice "Roger" voice from some obscure children's software I found on eBay (alas, not a joke). This README covers basic installation and usage only.
+A SAPI5 voice that lets Windows apps speak via the AcuVoice "Roger" TTS voice. Built from a full-fat copy of the AcuVoice "Roger" voice from some obscure children's software I found on eBay (alas, not a joke!). This README covers basic installation and usage **only**.
 
 ## Who even is "Roger"?
 
-"Roger" is one of the more obscure voices in the Fonix lineup (with Fonix being the company that acquired the rights to **DECTalk**, a much more well-known engine, later on in their history), only appearing in limited mentions across the Internet and in a few period articles and reviews. This voice is notable for being tested (never implemented, to my knowledge) on the Console Replacement System (CRS)-era NOAA Weather Radio, around 2002, as a possible replacement for DECTalk's "Perfect Paul" voice. Ultimately, however, this was never implemented across NOAA Weather Radio, and the "Roger" voice was quietly shelved and forgotten about (with [Speechify Tom](https://archive.org/details/SpeechifyTom) instead taking the primary position of TTS on CRS). The original "Roger" voice files in this distribution happened to be released as part of a single obscure software package that used Fonix AcuVoice, and the voice was never widely distributed or used in any major products (aside from Fonix iVoice, which is now presumed lost media), making it a rare find for TTS enthusiasts and collectors of obscure TTS voices/synthesizers.
+"Roger" is one of the more obscure voices in the Fonix lineup (with Fonix being the company that acquired the rights to **DECTalk**, a much more well-known engine, later on in their history), only appearing in limited mentions across the Internet and in a few period articles and reviews. This voice is notable for being tested (never implemented, to my knowledge) on the Console Replacement System (CRS)-era NOAA Weather Radio, around 2002, as a possible replacement for DECTalk's "Perfect Paul" voice. Ultimately, however, this was never implemented across NOAA Weather Radio, and the "Roger" voice was quietly shelved and forgotten about (with [Speechify Tom](https://archive.org/details/SpeechifyTom) instead taking the primary position of TTS on CRS). The original "Roger" voice files in this distribution happened to be released as part of a single obscure software package that used Fonix AcuVoice, and the voice was never widely distributed or used in any major products (aside from the actual "Fonix iSpeak" stand-alone program, which is now presumed lost media), making it a nice find for TTS enthusiasts and collectors of obscure TTS voices/synthesizers.
 
 ## What you get
 
 - A new SAPI5 voice token named **"AcuVoice Roger"**.
-- Usable from any 32-bit SAPI5 client: Balabolka, NVDA, older Office "Speak", and 32-bit PowerShell `(New-Object -ComObject SAPI.SpVoice).Speak("hello")`.
-- Per-word tracking data (via SAPI), which means you can do things like highlight words as they're spoken in supported clients.
+- Usable from any 32-bit SAPI5 client: Balabolka, NVDA, older Office "Speak", and 32-bit PowerShell.
+- Per-word tracking data (via SAPI), which means you can do things like highlight words as they're spoken in supported clients. **NOTE: The tracking may not be 100% accurate** due to the nature of the SAPI shim and how it interfaces with the original AcuVoice engine, but it should be close enough for basic use.
 - Audio quality: 16 kHz mono 16-bit PCM. Same as the original Roger voice on a "proper" AcuVoice install.
 
 ## Install
