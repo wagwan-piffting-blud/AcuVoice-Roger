@@ -46,6 +46,7 @@ data\                            ← voice data files (originally from the AcuVo
 lib\AvCore_acu.dll               ← the original AcuVoice TTS engine DLL (32-bit)
 lib\UserDict\                    ← the original AcuVoice user dictionary editor (32-bit)
 src\                             ← source code for the SAPI shim (not needed for install, but included for reference)
+build_sapi_shim.cmd              ← build script for the SAPI shim (also not needed for install)
 AcuRogerSAPI.dll                 ← the SAPI5 engine shim (~15 KB)
 acuvoice.ini                     ← config file read by the shim to find the original voice files (points to AvCore_acu.dll and the voice data folder)
 README.md                        ← this file

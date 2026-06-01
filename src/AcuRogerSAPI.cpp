@@ -151,14 +151,16 @@ STDMETHODIMP CAcuRoger::Speak(DWORD, REFGUID, const WAVEFORMATEX*,
     if (!EnsureAvcore()) return SPERR_NOT_FOUND;
 
     HRESULT hr = S_OK;
+    HANDLE  heap = GetProcessHeap();
+    const int SIL = 350;                               // |u-law amplitude| below this = silence
 
     // ---- 1) gather fragment text -> wide buffer + per-char source offsets ----
     size_t wlen = 0;
     for (const SPVTEXTFRAG* f = pFrag; f; f = f->pNext) wlen += f->ulTextLen;
     if (wlen == 0) return S_OK;
-    wchar_t* wbuf   = (wchar_t*)HeapAlloc(GetProcessHeap(), 0, (wlen + 1) * sizeof(wchar_t));
-    ULONG*   srcoff = (ULONG*)  HeapAlloc(GetProcessHeap(), 0, (wlen + 1) * sizeof(ULONG));
-    if (!wbuf || !srcoff) { if(wbuf)HeapFree(GetProcessHeap(),0,wbuf); if(srcoff)HeapFree(GetProcessHeap(),0,srcoff); return E_OUTOFMEMORY; }
+    wchar_t* wbuf   = (wchar_t*)HeapAlloc(heap, 0, (wlen + 1) * sizeof(wchar_t));
+    ULONG*   srcoff = (ULONG*)  HeapAlloc(heap, 0, (wlen + 1) * sizeof(ULONG));
+    if (!wbuf || !srcoff) { if(wbuf)HeapFree(heap,0,wbuf); if(srcoff)HeapFree(heap,0,srcoff); return E_OUTOFMEMORY; }
     size_t wpos = 0;
     for (const SPVTEXTFRAG* f = pFrag; f; f = f->pNext) {
         for (ULONG j = 0; j < f->ulTextLen && f->pTextStart; j++) {
@@ -169,92 +171,136 @@ STDMETHODIMP CAcuRoger::Speak(DWORD, REFGUID, const WAVEFORMATEX*,
     }
     wbuf[wpos] = 0;
 
-    // ---- 2) tokenize into words (maximal non-space runs containing >=1 alnum) ----
-    const unsigned MAXW = 2048;
-    ULONG*    wPos  = (ULONG*)   HeapAlloc(GetProcessHeap(),0,MAXW*sizeof(ULONG));    // source char position
-    ULONG*    wLen  = (ULONG*)   HeapAlloc(GetProcessHeap(),0,MAXW*sizeof(ULONG));    // source char length
-    unsigned* wWt   = (unsigned*)HeapAlloc(GetProcessHeap(),0,MAXW*sizeof(unsigned)); // duration weight (alnum count)
-    unsigned* wSamp = (unsigned*)HeapAlloc(GetProcessHeap(),0,MAXW*sizeof(unsigned)); // audio sample offset (filled later)
-    unsigned nWords = 0;
-    for (size_t i = 0; i < wpos && nWords < MAXW; ) {
+    // ---- 2) split into chunks (<= CHUNKMAX chars, broken at sentence/clause/space). ----
+    // avcore infinite-loops on long, expansion-dense text (numbers/dates/abbrevs) in a
+    // single synth call: its token-accumulation loop reaches a state where neither exit
+    // condition (text-exhausted / segment-full) fires. Keeping each call small avoids it.
+    const size_t   CHUNKMAX = 200;
+    const unsigned MAXCH = 8192;
+    size_t* chStart = (size_t*)HeapAlloc(heap,0,MAXCH*sizeof(size_t));
+    size_t* chLen   = (size_t*)HeapAlloc(heap,0,MAXCH*sizeof(size_t));
+    char*   chPunct = (char*)  HeapAlloc(heap,0,MAXCH);  // 1 = chunk ends at punctuation (keep avcore's pause)
+    unsigned nCh = 0;
+    for (size_t i = 0; i < wpos && nCh < MAXCH; ) {
         while (i < wpos && iswspace(wbuf[i])) i++;
         if (i >= wpos) break;
-        size_t start = i; unsigned wt = 0;
-        while (i < wpos && !iswspace(wbuf[i])) { if (iswalnum(wbuf[i])) wt++; i++; }
-        if (wt > 0) { wPos[nWords]=srcoff[start]; wLen[nWords]=(ULONG)(i-start); wWt[nWords]=wt; nWords++; }
+        size_t start = i;
+        if (wpos - start <= CHUNKMAX) { chStart[nCh]=start; chLen[nCh]=wpos-start; chPunct[nCh]=1; nCh++; break; }
+        size_t limit = start + CHUNKMAX, brk = 0; char punct = 0;
+        for (size_t j = start; j < limit; j++) { wchar_t c=wbuf[j]; if(c==L'.'||c==L'!'||c==L'?'||c==L';'||c==L':'||c==L'\n') brk=j+1; }
+        if (brk) punct = 1;
+        if (!brk) { for (size_t j=start;j<limit;j++) if(wbuf[j]==L',') brk=j+1; if(brk) punct=1; }
+        if (!brk) for (size_t j=limit;j>start;j--) if(iswspace(wbuf[j-1])){ brk=j; break; }  // forced split (punct stays 0)
+        if (brk <= start) brk = limit;                 // hard cap (single huge token)
+        chStart[nCh]=start; chLen[nCh]=brk-start; chPunct[nCh]=punct; nCh++;
+        i = brk;
     }
 
-    // ---- 3) wide -> ANSI for avcore, then synthesize ----
-    int abytes = WideCharToMultiByte(CP_ACP, 0, wbuf, -1, NULL, 0, NULL, NULL);
-    char* abuf = (char*)HeapAlloc(GetProcessHeap(), 0, abytes > 0 ? abytes : 1);
-    WideCharToMultiByte(CP_ACP, 0, wbuf, -1, abuf, abytes, NULL, NULL);
+    ULONGLONG ei = 0; site->GetEventInterest(&ei);
+    bool wantWords = (ei & SPFEI(SPEI_WORD_BOUNDARY)) != 0;
+    USHORT vol = 100; site->GetVolume(&vol);           // rate/pitch accepted but ignored (engine limitation)
 
-    void* sbuf = NULL; unsigned slen = 0;
-    EnterCriticalSection(&g_avLock);                 // avcore uses process-global state; serialize
-    unsigned rc = g_synth(abuf, &sbuf, &slen, 0);
-    LeaveCriticalSection(&g_avLock);
-    HeapFree(GetProcessHeap(), 0, abuf);
+    // reusable per-chunk word arrays
+    const unsigned MAXW = 2048;
+    ULONG*    wPos  = (ULONG*)   HeapAlloc(heap,0,MAXW*sizeof(ULONG));   // source char position
+    ULONG*    wLen  = (ULONG*)   HeapAlloc(heap,0,MAXW*sizeof(ULONG));   // word char length
+    ULONG*    wBuf  = (ULONG*)   HeapAlloc(heap,0,MAXW*sizeof(ULONG));   // word start index in wbuf
+    unsigned* wWt   = (unsigned*)HeapAlloc(heap,0,MAXW*sizeof(unsigned));// duration weight
+    unsigned* wSamp = (unsigned*)HeapAlloc(heap,0,MAXW*sizeof(unsigned));// audio sample offset within chunk
+    short pcm[4096]; const unsigned PCH = 4096;
+    ULONGLONG audioBase = 0;                            // cumulative output bytes across chunks
 
-    if (rc == 0 && sbuf) {
+    for (unsigned c = 0; c < nCh && SUCCEEDED(hr); c++) {
+        if (site->GetActions() & SPVES_ABORT) break;
+        size_t cs = chStart[c], cl = chLen[c];
+
+        // ---- 3) synthesize this chunk ----
+        wchar_t saved = wbuf[cs+cl]; wbuf[cs+cl] = 0;
+        int abytes = WideCharToMultiByte(CP_ACP,0,wbuf+cs,-1,NULL,0,NULL,NULL);
+        char* abuf = (char*)HeapAlloc(heap,0,abytes>0?abytes:1);
+        WideCharToMultiByte(CP_ACP,0,wbuf+cs,-1,abuf,abytes,NULL,NULL);
+        void* sbuf=NULL; unsigned slen=0;
+        EnterCriticalSection(&g_avLock); unsigned rc=g_synth(abuf,&sbuf,&slen,0); LeaveCriticalSection(&g_avLock);
+        HeapFree(heap,0,abuf);
+        wbuf[cs+cl] = saved;
+        if (rc != 0 || !sbuf) { if(sbuf){EnterCriticalSection(&g_avLock);g_free(&sbuf);LeaveCriticalSection(&g_avLock);} hr=E_FAIL; break; }
         const unsigned char* ub = (const unsigned char*)sbuf;
 
-        // ---- 4) map each word to an audio sample offset by SPEECH time ----
-        // Silence samples don't advance the word timeline, so highlights pause
-        // during the engine's comma/sentence gaps instead of running ahead.
-        const int SIL = 350;                          // |amplitude| below this counts as silence
-        unsigned totalSpeech = 0;
-        for (unsigned i = 0; i < slen; i++) { int a = g_ulaw[ub[i]]; if (a < 0) a = -a; if (a >= SIL) totalSpeech++; }
-        unsigned totalWt = 0; for (unsigned k = 0; k < nWords; k++) totalWt += wWt[k];
-        if (totalWt == 0) totalWt = 1;
-        {
-            unsigned i = 0, speechSoFar = 0, cumBefore = 0;
-            for (unsigned k = 0; k < nWords; k++) {
-                unsigned target = (unsigned)((unsigned long long)totalSpeech * cumBefore / totalWt);
-                while (i < slen && speechSoFar < target) { int a = g_ulaw[ub[i]]; if (a < 0) a = -a; if (a >= SIL) speechSoFar++; i++; }
-                wSamp[k] = i;
-                cumBefore += wWt[k];
-            }
+        // If this chunk was a forced mid-phrase split (no trailing punctuation) and isn't
+        // the last chunk, avcore appended a full ~680 ms sentence-pause that doesn't belong
+        // mid-sentence. Trim it back to a natural word juncture so the splice is seamless.
+        if (!chPunct[c] && c + 1 < nCh) {
+            unsigned ts = slen;
+            while (ts > 0) { int a = g_ulaw[ub[ts-1]]; if (a < 0) a = -a; if (a >= SIL) break; ts--; }
+            if (ts + 120 < slen) slen = ts + 120;       // keep ~15 ms juncture
         }
 
-        // ---- 5) PCM16 out in chunks; fire word-boundary events as we reach them ----
-        USHORT vol = 100; site->GetVolume(&vol);      // rate/pitch accepted but ignored (engine limitation)
-        const unsigned CHUNK = 4096;
-        short pcm[4096];
-        unsigned off = 0, nextW = 0;
-        for (; off < slen; ) {
+        unsigned nWords = 0;
+        if (wantWords) {
+            // tokenize the chunk's words (track source offset + wbuf index)
+            for (size_t i = cs; i < cs+cl && nWords < MAXW; ) {
+                while (i < cs+cl && iswspace(wbuf[i])) i++;
+                if (i >= cs+cl) break;
+                size_t st = i; unsigned alnum = 0;
+                while (i < cs+cl && !iswspace(wbuf[i])) { if (iswalnum(wbuf[i])) alnum++; i++; }
+                if (alnum > 0) { wPos[nWords]=srcoff[st]; wLen[nWords]=(ULONG)(i-st); wBuf[nWords]=(ULONG)st; wWt[nWords]=alnum; nWords++; }
+            }
+            // weight each word by its actual synthesized duration (robust to expansion)
+            for (unsigned k = 0; k < nWords; k++) {
+                size_t bs=wBuf[k], bl=wLen[k];
+                wchar_t sv = wbuf[bs+bl]; wbuf[bs+bl] = 0;
+                int ab = WideCharToMultiByte(CP_ACP,0,wbuf+bs,-1,NULL,0,NULL,NULL);
+                char* asw = (char*)HeapAlloc(heap,0,ab>0?ab:1);
+                if (asw) {
+                    WideCharToMultiByte(CP_ACP,0,wbuf+bs,-1,asw,ab,NULL,NULL);
+                    void* wbf=NULL; unsigned wn=0, sp=0;
+                    EnterCriticalSection(&g_avLock);
+                    unsigned wr=g_synth(asw,&wbf,&wn,0);
+                    if (wr==0 && wbf){ const unsigned char* wp=(const unsigned char*)wbf; for(unsigned i=0;i<wn;i++){int a=g_ulaw[wp[i]];if(a<0)a=-a;if(a>=SIL)sp++;} g_free(&wbf); }
+                    LeaveCriticalSection(&g_avLock);
+                    HeapFree(heap,0,asw);
+                    wWt[k] = sp ? sp : 1;
+                }
+                wbuf[bs+bl] = sv;
+            }
+            // distribute words across the chunk's SPEECH time (silence doesn't advance)
+            unsigned totalSpeech=0; for(unsigned i=0;i<slen;i++){int a=g_ulaw[ub[i]];if(a<0)a=-a;if(a>=SIL)totalSpeech++;}
+            unsigned totalWt=0; for(unsigned k=0;k<nWords;k++) totalWt+=wWt[k]; if(!totalWt)totalWt=1;
+            unsigned ii=0, ss=0, cum=0;
+            for (unsigned k=0;k<nWords;k++){ unsigned target=(unsigned)((unsigned long long)totalSpeech*cum/totalWt);
+                while(ii<slen && ss<target){int a=g_ulaw[ub[ii]];if(a<0)a=-a;if(a>=SIL)ss++;ii++;}
+                wSamp[k]=ii; cum+=wWt[k]; }
+        }
+
+        // ---- 4) PCM16 out; fire word events at (audioBase + word offset) ----
+        unsigned off=0, nextW=0;
+        while (off < slen) {
             if (site->GetActions() & SPVES_ABORT) break;
-            unsigned chunkEnd = (slen - off > CHUNK) ? off + CHUNK : slen;
-            while (nextW < nWords && wSamp[nextW] < chunkEnd) {
+            unsigned cend = (slen-off > PCH) ? off+PCH : slen;
+            while (wantWords && nextW < nWords && wSamp[nextW] < cend) {
                 SPEVENT ev = {};
-                ev.eEventId            = SPEI_WORD_BOUNDARY;
-                ev.elParamType         = SPET_LPARAM_IS_UNDEFINED;
-                ev.ullAudioStreamOffset = (ULONGLONG)wSamp[nextW] * sizeof(short); // output PCM16 byte offset
-                ev.wParam              = (WPARAM)wLen[nextW];                       // word length (chars)
-                ev.lParam              = (LPARAM)wPos[nextW];                       // word position in source text
+                ev.eEventId             = SPEI_WORD_BOUNDARY;
+                ev.elParamType          = SPET_LPARAM_IS_UNDEFINED;
+                ev.ullAudioStreamOffset = audioBase + (ULONGLONG)wSamp[nextW] * sizeof(short);
+                ev.wParam               = (WPARAM)wLen[nextW];
+                ev.lParam               = (LPARAM)wPos[nextW];
                 site->AddEvents(&ev, 1);
                 nextW++;
             }
-            unsigned n = chunkEnd - off;
-            const unsigned char* u = ub + off;
-            for (unsigned k = 0; k < n; k++) {
-                int v = g_ulaw[u[k]];
-                if (vol != 100) v = (v * vol) / 100;
-                pcm[k] = (short)v;
-            }
-            ULONG written = 0;
-            hr = site->Write(pcm, n * sizeof(short), &written);
+            unsigned n = cend - off; const unsigned char* u = ub + off;
+            for (unsigned k=0;k<n;k++){ int v=g_ulaw[u[k]]; if(vol!=100)v=(v*vol)/100; pcm[k]=(short)v; }
+            ULONG wrn=0; hr = site->Write(pcm, n*sizeof(short), &wrn);
             if (FAILED(hr)) break;
             off += n;
         }
+        audioBase += (ULONGLONG)slen * sizeof(short);
         EnterCriticalSection(&g_avLock); g_free(&sbuf); LeaveCriticalSection(&g_avLock);
-    } else {
-        if (sbuf) { EnterCriticalSection(&g_avLock); g_free(&sbuf); LeaveCriticalSection(&g_avLock); }
-        hr = E_FAIL;
     }
 
-    HeapFree(GetProcessHeap(),0,wbuf);  HeapFree(GetProcessHeap(),0,srcoff);
-    HeapFree(GetProcessHeap(),0,wPos);  HeapFree(GetProcessHeap(),0,wLen);
-    HeapFree(GetProcessHeap(),0,wWt);   HeapFree(GetProcessHeap(),0,wSamp);
+    HeapFree(heap,0,wbuf);  HeapFree(heap,0,srcoff);
+    HeapFree(heap,0,chStart); HeapFree(heap,0,chLen); HeapFree(heap,0,chPunct);
+    HeapFree(heap,0,wPos);  HeapFree(heap,0,wLen);  HeapFree(heap,0,wBuf);
+    HeapFree(heap,0,wWt);   HeapFree(heap,0,wSamp);
     return hr;
 }
 

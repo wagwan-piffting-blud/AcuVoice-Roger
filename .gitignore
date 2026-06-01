@@ -1,1 +1,8 @@
 *.zip
+
+# MSVC build artifacts (the shipping DLL lives at the repo root, not in src/)
+src/*.dll
+src/*.lib
+src/*.exp
+src/*.obj
+*.obj
