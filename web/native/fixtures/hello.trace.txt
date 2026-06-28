@@ -1,0 +1,27 @@
+avcore loaded at 10000000
+hooks: CreateFileA=7664E9F0 ReadFile=7664EDC0 Seek=7664EE70 GetFileSize=7664EC40 Close=7664E770 INI=7668D110
+
+==== SYNTH: "Hello." ====
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle   -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle method=0 off=422312
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle @422312     len=20555    got=20555
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle   -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle method=0 off=422312
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle @422312     len=20555    got=20555
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\auxdict1.fle -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\auxdict1.fle method=0 off=377144
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\auxdict1.fle @377144     len=5699     got=5699
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\auxdict1.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle   -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle method=0 off=422312
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle @422312     len=20555    got=20555
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply method=0 off=20826822
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply @20826822   len=3392     got=3392
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+==== synth rc=0  ulaw_bytes=8832 (1.10 s) ====
+
+wrote .\fixtures\hello.wav (8832 samples, 1.10 s)

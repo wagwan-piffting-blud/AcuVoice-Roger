@@ -1,0 +1,67 @@
+name: Deploy AcuVoice Roger (WASM) to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'lib/avcore_acu.dll'
+      - 'data/**'
+      - '.github/workflows/wasm.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+
+      - name: Build the engine to WebAssembly
+        run: |
+          emcc web/emu/mem.c web/emu/cpu.c web/emu/loader.c web/emu/win32.c \
+               web/emu/vfs_wasm.c web/emu/host.c web/emu/wasm_main.c \
+               -O2 -lm -o web/site/acu.js \
+               --preload-file lib/avcore_acu.dll@avcore_acu.dll \
+               -s MODULARIZE=1 -s EXPORT_NAME=AcuModule \
+               -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=16777216 -s MAXIMUM_MEMORY=268435456 \
+               -s STACK_SIZE=2097152 \
+               -s "EXPORTED_FUNCTIONS=['_acu_boot_wasm','_acu_synth_wasm','_acu_ulaw_ptr','_malloc','_free']" \
+               -s "EXPORTED_RUNTIME_METHODS=['ccall','cwrap','UTF8ToString','stringToUTF8','lengthBytesUTF8','HEAPU8']" \
+               -s ENVIRONMENT=web,worker
+
+      - name: Assemble soundbank + dictionaries (lowercased; Pages is case-sensitive)
+        run: |
+          mkdir -p web/site/data/dictfls web/site/data/ulaw08sb web/site/data/temp
+          for f in data/Dictfls/*; do [ -f "$f" ] && cp "$f" "web/site/data/dictfls/$(basename "$f" | tr 'A-Z' 'a-z')"; done
+          for f in data/Ulaw08Sb/*; do [ -f "$f" ] && cp "$f" "web/site/data/ulaw08sb/$(basename "$f" | tr 'A-Z' 'a-z')"; done
+          touch web/site/data/temp/.keep
+          echo "Site contents:"; ls -la web/site; echo "Soundbank:"; ls -la web/site/data/ulaw08sb
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

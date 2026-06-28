@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AcuVoice Roger - in-browser TTS</title>
+<meta name="description" content="The 1998 Fonix AcuVoice 'Roger' text-to-speech voice, running fully in your browser via a WebAssembly x86 emulator of the original engine.">
+<style>
+  :root{
+    --bg:#0b0e0c; --panel:#11160f; --ink:#d7e4cf; --dim:#7e8c78;
+    --accent:#8bd450; --accent2:#43b02a; --amber:#f0a500; --err:#ff6b5e; --line:#243018;
+    --mono:'Cascadia Code',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 50% -10%, #16210f 0%, var(--bg) 60%);
+       color:var(--ink);font-family:var(--mono);min-height:100vh;display:flex;flex-direction:column;align-items:center}
+  .wrap{width:100%;max-width:820px;padding:32px 20px 60px}
+  header{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:22px}
+  h1{font-size:26px;margin:0;letter-spacing:.5px}
+  h1 .vox{color:var(--accent)}
+  .tag{color:var(--amber);font-size:12px;border:1px solid var(--line);padding:2px 8px;border-radius:10px}
+  p.lede{color:var(--dim);font-size:13.5px;line-height:1.6;margin:0 0 20px}
+  p.lede b{color:var(--ink)}
+  textarea{width:100%;min-height:120px;background:var(--panel);color:var(--ink);border:1px solid var(--line);
+           border-radius:10px;padding:14px;font-family:var(--mono);font-size:15px;line-height:1.5;resize:vertical}
+  textarea:focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 2px #43b02a22}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0}
+  button{font-family:var(--mono);font-size:14px;border-radius:8px;border:1px solid var(--line);
+         background:var(--panel);color:var(--ink);padding:10px 16px;cursor:pointer;transition:.15s}
+  button:hover:not(:disabled){border-color:var(--accent2);color:#fff}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.primary{background:linear-gradient(180deg,#3f7a22,#2c5817);border-color:#3f7a22;color:#eafce0;font-weight:600}
+  button.primary:hover:not(:disabled){filter:brightness(1.15)}
+  .presets{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 0}
+  .preset{font-size:12px;padding:6px 10px;color:var(--dim)}
+  .status{margin-top:18px;font-size:13px;color:var(--dim);min-height:20px;border-left:2px solid var(--line);padding-left:12px}
+  .status.ok{color:var(--accent)} .status.err{color:var(--err)}
+  details{margin-top:30px;border-top:1px solid var(--line);padding-top:16px;color:var(--dim);font-size:12.5px;line-height:1.7}
+  details summary{cursor:pointer;color:var(--ink);font-size:13px;margin-bottom:8px}
+  details code{color:var(--amber)} details b{color:var(--ink)}
+  a{color:var(--accent)}
+  footer{color:var(--dim);font-size:11.5px;margin-top:26px;border-top:1px solid var(--line);padding-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Acu<span class="vox">Voice</span> · Roger</h1>
+    <span class="tag">1998 · in your browser</span>
+  </header>
+
+  <p class="lede">
+    The original <b>Fonix AcuVoice "Roger"</b> concatenative TTS engine - the deliberate, emergency-broadcast
+    voice - running <b>fully locally</b>. There is no server and no cloud API: your text is synthesized by the
+    <b>real <code>avcore.dll</code></b> executing inside a hand-written <b>x86 emulator compiled to WebAssembly</b>.
+    The 160&nbsp;MB soundbank is streamed on demand via HTTP range requests, so a session pulls only a couple of megabytes.
+  </p>
+
+  <textarea id="text" spellcheck="false">The National Weather Service has issued a Tornado Warning for McCracken County, including the cities of Paducah and Cecil, until 8:45 p.m. tonight.</textarea>
+
+  <div class="presets">
+    <button class="preset" data-text="The National Weather Service has issued a Tornado Warning for McCracken County, including the cities of Paducah and Cecil, until 8:45 p.m. tonight. At 8:15 p.m., McCracken County emergency managers reported a tornado on the ground near the intersection of Lightfoot Road and Route 15 65, moving northeast at 25 miles per hour. This storm will reach Concord Elementary School by 8:25 p.m., and will be near Paducah by 8:35 p.m.. Persons in the warned area should seek shelter in a basement, or interior room immediately. Use blankets, pillows or cushions to cover your body. Stay away from windows. Stay tuned to NOAA Weather Radio for further information.">Tornado Warning</button>
+  </div>
+
+  <div class="row">
+    <button id="speak" class="primary" disabled>► Speak</button>
+    <button id="stop">■ Stop</button>
+    <button id="download" disabled>⤓ Download .wav</button>
+    <span style="color:var(--dim);font-size:12px">Ctrl/⌘+Enter</span>
+  </div>
+
+  <div id="status" class="status">Booting...</div>
+
+  <details>
+    <summary>How does this work?</summary>
+    <p>
+      AcuVoice (Fonix, ~1998-99) is a <b>concatenative unit-selection synthesizer</b>: it turns text into a string of
+      phonetic units, then stitches together short µ-law audio snippets from a 160&nbsp;MB soundbank. Re-implementing its
+      ~300&nbsp;KB linguistic front-end (number/date/abbreviation expansion, a pronunciation dictionary, letter-to-sound
+      rules, prosody) would risk subtly changing how Roger speaks. So instead of rewriting it, this page <b>runs the
+      original 32-bit Windows DLL unmodified</b>.
+    </p>
+    <p>
+      A purpose-built <b>x86 interpreter</b> (with a tiny PE loader and ~70 Win32 API shims) was written in C and compiled
+      to WebAssembly with Emscripten. It loads <code>avcore_acu.dll</code>, runs its C-runtime startup and <code>DllMain</code>,
+      and calls the engine's <code>_txtstr_to_sndbuf</code> export - exactly as a native program would. The emulator's output
+      is <b>byte-for-byte identical</b> to the desktop voice. Audio is 8&nbsp;kHz mono µ-law, decoded to PCM and played via
+      the Web Audio API. Everything runs in a Web Worker; the soundbank is fetched in cached 256&nbsp;KB blocks via range requests.
+    </p>
+  </details>
+
+  <footer>
+    Reverse-engineered &amp; ported with a from-scratch WASM x86 emulator. The Roger voice &amp; soundbank are &copy; Fonix/SpeechFX. Made by Claude Code.
+  </footer>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

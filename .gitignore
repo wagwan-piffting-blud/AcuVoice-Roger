@@ -1,8 +1,21 @@
 *.zip
-
-# MSVC build artifacts (the shipping DLL lives at the repo root, not in src/)
 src/*.dll
 src/*.lib
 src/*.exp
 src/*.obj
 *.obj
+*.txt
+*.wav
+!demo.wav
+web/site/acu.js
+web/site/acu.wasm
+web/site/acu.data
+web/site/data/
+web/native/*.exe
+web/native/out.wav
+web/native/trace.txt
+web/emu/*.exe
+web/emu/wasm_out.*
+web/node_modules/
+web/package-lock.json
+!web/native/fixtures/**

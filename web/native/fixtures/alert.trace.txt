@@ -1,0 +1,137 @@
+avcore loaded at 10000000
+hooks: CreateFileA=7664E9F0 ReadFile=7664EDC0 Seek=7664EE70 GetFileSize=7664EC40 Close=7664E770 INI=7668D110
+
+==== SYNTH: "Tornado warning for your county until 8:45 PM." ====
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle   -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle method=0 off=943877
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle @943877     len=20555    got=20555
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\userdict.fle -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\userdict.fle method=0 off=1223
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\userdict.fle @1223       len=77       got=77
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\userdict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle   -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle method=0 off=1010417
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle @1010417    len=20555    got=20555
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle   -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle method=0 off=364468
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle @364468     len=20555    got=20555
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle   -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle method=0 off=1038003
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle @1038003    len=20555    got=2033
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle   -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle method=0 off=203724
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle @203724     len=20555    got=20555
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle   -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle method=0 off=987756
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle @987756     len=20555    got=20555
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle   -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle method=0 off=686333
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle @686333     len=20555    got=20555
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle   -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle method=0 off=686333
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle @686333     len=20555    got=20555
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle   -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle method=0 off=293773
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle @293773     len=20555    got=20555
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle   -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle method=0 off=364468
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle @364468     len=20555    got=20555
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle   -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle method=0 off=354844
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle @354844     len=20555    got=20555
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle   -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle method=0 off=646562
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle @646562     len=20555    got=20555
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Dictfls\dict.fle
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon1.cmp -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon1.cmp method=0 off=5525392
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon1.cmp @5525392    len=1620     got=1620
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon1.cmp
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon2.cmp -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon2.cmp method=0 off=1558456
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon2.cmp @1558456    len=1876     got=1876
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon2.cmp
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon4.cmp -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon4.cmp method=0 off=28376249
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon4.cmp @28376249   len=1383     got=1383
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon4.cmp
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon2.cmp -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon2.cmp method=0 off=7117517
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon2.cmp @7117517    len=1602     got=1602
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon2.cmp
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon1.cmp -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon1.cmp method=0 off=4051951
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon1.cmp @4051951    len=1344     got=1344
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon1.cmp
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply method=0 off=11262853
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply @11262853   len=1393     got=1393
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon3.cmp -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon3.cmp method=0 off=32592627
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon3.cmp @32592627   len=1516     got=1516
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon3.cmp
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon2.cmp -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon2.cmp method=0 off=2693636
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon2.cmp @2693636    len=2332     got=2332
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon2.cmp
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon4.cmp -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon4.cmp method=0 off=27638556
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon4.cmp @27638556   len=1398     got=1398
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon4.cmp
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply method=0 off=12237491
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply @12237491   len=1173     got=1173
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon3.cmp -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon3.cmp method=0 off=29676629
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon3.cmp @29676629   len=1583     got=1583
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashfon3.cmp
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply method=0 off=19249420
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply @19249420   len=1698     got=1698
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply method=0 off=12792371
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply @12792371   len=2471     got=2471
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply method=0 off=17446154
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply @17446154   len=2594     got=2594
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+[CreateFileA]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply -> ok
+[Seek]         C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply method=0 off=17915114
+[ReadFile]     C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply @17915114   len=5088     got=5088
+[CloseHandle]  C:\Program Files (x86)\AcuVoiceRoger\data\Ulaw08Sb\hashsnds.ply
+==== synth rc=0  ulaw_bytes=34511 (4.31 s) ====
+
+wrote .\fixtures\alert.wav (34511 samples, 4.31 s)
