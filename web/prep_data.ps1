@@ -1,6 +1,8 @@
-# prep_data.ps1 - assemble the browser data tree (lowercased filenames) for LOCAL testing.
-# Source = repo data/.  Dest = web/site/data/ (gitignored).  Engine hardcodes lowercase
-# names and GitHub Pages is case-sensitive, so everything is lowercased here.
+# prep_data.ps1 - assemble the browser data tree (lowercased filenames). This staged tree
+# is what build_wasm.ps1 preloads into the self-contained acu.data bundle (and what the
+# node/browser tests read). Source = repo data/.  Dest = web/site/data/ (gitignored).
+# The engine hardcodes lowercase names and MEMFS/Pages are case-sensitive, so everything
+# is lowercased here. build_wasm.ps1 auto-runs this if the soundbank isn't staged yet.
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $src  = Join-Path $repo 'data'

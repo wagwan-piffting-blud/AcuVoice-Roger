@@ -1,39 +1,34 @@
-// vfs_wasm.c - WASM backend: file I/O is delegated to JS (browser: sync Range XHR
-// in a Worker with a block cache; node test: fs). Same vfs_* API as native vfs.c.
+// vfs_wasm.c - WASM backend: the ENTIRE data tree (dictionaries + ~160 MB soundbank)
+// is preloaded into Emscripten's in-memory FS (MEMFS) by --preload-file, so it ships
+// packaged inside acu.data. File I/O is therefore plain POSIX stdio against MEMFS -
+// the same code path as the native vfs.c backend, just with the wasm ini_get below.
+// (This replaces the old sync-Range-XHR-per-session backend; the soundbank is now
+//  part of the bundle instead of being streamed from the server on demand.)
 #include "emu.h"
-#include <emscripten.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// JS provides Module.acuFileSize(url)->int (bytes, or -1 if missing)
-//          and Module.acuFileRead(url,pos,len,dstPtr)->int (bytes written into HEAPU8[dst..])
-EM_JS(int, js_file_size, (const char* url), {
-    return Module.acuFileSize(UTF8ToString(url));
-});
-EM_JS(int, js_file_read, (const char* url, unsigned pos, unsigned len, unsigned dst), {
-    return Module.acuFileRead(UTF8ToString(url), pos, len, dst);
-});
+struct vfile { FILE* fp; uint32_t size; };
 
-struct vfile { char url[256]; uint32_t size; };
-
-void vfs_init(const char* data_root){ (void)data_root; }  // paths are hardcoded URLs in ini_get
+void vfs_init(const char* data_root){ (void)data_root; }  // MEMFS paths are hardcoded in ini_get
 
 vfile* vfs_open(const char* guest_path){
-    // guest_path is already a page-relative URL like "data/ulaw08sb/hashsnds.ply"
-    int sz = js_file_size(guest_path);
-    if(sz < 0) return NULL;
+    // guest_path is a MEMFS path like "data/ulaw08sb/hashsnds.ply". The engine hardcodes
+    // lowercase names and MEMFS is case-sensitive, so prep_data.ps1 lowercases everything
+    // in the preloaded tree to match. fopen resolves the relative path against cwd "/".
+    FILE* fp = fopen(guest_path, "rb");
+    if(!fp) return NULL;
+    fseek(fp,0,SEEK_END); long sz=ftell(fp); fseek(fp,0,SEEK_SET);
     vfile* f = (vfile*)malloc(sizeof(vfile));
-    snprintf(f->url,sizeof f->url,"%s",guest_path);
-    f->size = (uint32_t)sz;
-    return f;
+    f->fp=fp; f->size=(uint32_t)sz; return f;
 }
 int vfs_read(vfile* f, uint32_t pos, void* dst, uint32_t n){
-    if(!f) return 0;
-    return js_file_read(f->url, pos, n, (unsigned)(uintptr_t)dst);
+    if(!f) return 0; if(fseek(f->fp,(long)pos,SEEK_SET)!=0) return 0;
+    return (int)fread(dst,1,n,f->fp);
 }
 uint32_t vfs_size(vfile* f){ return f?f->size:0; }
-void vfs_close(vfile* f){ if(f) free(f); }
+void vfs_close(vfile* f){ if(f){ if(f->fp)fclose(f->fp); free(f); } }
 
 int ini_get(const char* section,const char* key,const char* def,char* out,int outsz){
     const char* v=NULL;

@@ -79,6 +79,117 @@ static void BuildUlaw()
     }
 }
 
+// ---------- <pron> support: SAPI phonemes -> avcore \avprn= inline tag ----------
+//
+// SAPI hands <pron sym="..."> to the engine as State.pPhoneIds (an SPPHONEID/WCHAR
+// array) under SPVA_Pronounce, with *empty text*. avcore has no phoneme-input API on
+// the text path, but its control-tag parser (armed by flags bit1) supports
+//     \avprn=<word>=<transcription>\
+// which registers a HIGHEST-priority pronunciation override: FUN_10042460 consults it
+// before userdict/dict/aux/LTS. So we register a nonce word -> the AcuVoice
+// transcription, then speak the nonce. The transcription uses the human Userdict.txt
+// alphabet (data_format_report.md 3.3) and MUST NOT contain '\' (the tag terminator),
+// so we emit only primary-stress '/'. The \avprn key is tolower'd by the engine, so the
+// nonce is lowercase.
+static ISpPhoneConverter* g_phone = NULL;              // en-US SAPI phoneme <-> id converter
+static const char* const  AVPRN_NONCE = "qzjx";        // lowercase, non-lexical, tokenizes as one word
+
+// Create the en-US SAPI phoneme converter by binding the Language=409 token from the
+// phone-converter category. ISpPhoneConverter has no SetLanguageId -- the language lives
+// in its object token. Its default alphabet is the classic SAPI set (what <pron sym="...">
+// uses), so IdToPhone yields "f r ay 1 d ey 2"-style symbols. Falls back gracefully to
+// NULL (caller skips the pron) if no such token is registered.
+static bool EnsurePhoneConv()
+{
+    if (g_phone) return true;
+    ISpObjectTokenCategory* cat = NULL;
+    if (FAILED(CoCreateInstance(__uuidof(SpObjectTokenCategory), NULL, CLSCTX_ALL,
+                                __uuidof(ISpObjectTokenCategory), (void**)&cat)) || !cat)
+        return false;
+    if (SUCCEEDED(cat->SetId(SPCAT_PHONECONVERTERS, FALSE))) {
+        IEnumSpObjectTokens* en = NULL;
+        if (SUCCEEDED(cat->EnumTokens(L"Language=409", NULL, &en)) && en) {
+            ISpObjectToken* tok = NULL;
+            if (en->Next(1, &tok, NULL) == S_OK && tok) {
+                ISpPhoneConverter* pc = NULL;
+                if (SUCCEEDED(tok->CreateInstance(NULL, CLSCTX_ALL,
+                                                  __uuidof(ISpPhoneConverter), (void**)&pc)) && pc)
+                    g_phone = pc;                          // holds ref for process lifetime
+                tok->Release();
+            }
+            en->Release();
+        }
+    }
+    cat->Release();
+    return g_phone != NULL;
+}
+
+// SAPI American-English phoneme -> AcuVoice transcription. Vowel values verified against
+// avcore's own segmentation (synth_to_phon, web/native/acu_phon.c): e.g. day->da~,
+// Friday->fri~da~, bird->bu|d, father->fot~u|, this->t~is. To re-derive/extend, dump a
+// word that isolates the phoneme and read off the vowel/consonant letters.
+struct PhMap { const char* sapi; const char* acu; int vowel; };
+static const PhMap g_phmap[] = {
+    // vowels / diphthongs
+    {"iy","e~",1}, {"ih","i",1},  {"ey","a~",1}, {"eh","e",1},  {"ae","a",1},
+    {"aa","o",1},  {"ao","o",1},  {"ah","u",1},  {"ax","u",1},  {"uh","u",1},
+    {"uw","u~",1}, {"er","u|",1},  {"ay","i~",1}, {"aw","aw",1}, {"oy","oy",1},
+    {"ow","o~",1},   // aw/oy use w/y glide forms, NOT the authentic u/i offglides (au/oi):
+                     // the \avprn normalizer splits word-final V+V into two syllables, but
+                     // the "aw"/"oy" units exist and stay one syllable (verified vs real).
+    // consonants
+    {"b","b",0},  {"ch","c~",0}, {"d","d",0},  {"dh","t~",0}, {"f","f",0}, {"g","g",0},
+    {"hh","h",0}, {"h","h",0},   {"jh","j",0}, {"k","k",0},  {"l","l",0}, {"m","m",0},
+    {"n","n",0},  {"ng","n~",0}, {"p","p",0},  {"r","r",0},  {"s","s",0}, {"sh","s~",0},
+    {"t","t",0},  {"th","t'",0}, {"v","v",0},  {"w","w",0},  {"y","y",0}, {"z","z",0},
+    {"zh","z~",0},
+};
+
+static const PhMap* MapPhone(const char* s)
+{
+    for (unsigned i = 0; i < sizeof(g_phmap)/sizeof(g_phmap[0]); i++)
+        if (strcmp(g_phmap[i].sapi, s) == 0) return &g_phmap[i];
+    return NULL;
+}
+
+// Translate a SAPI phoneme-id array to AcuVoice transcription. Returns chars written
+// (0 = untranslatable -> caller skips the fragment). Never emits '\'.
+static int BuildAcuPron(const SPPHONEID* ids, char* out, int outsz)
+{
+    if (!ids || !*ids || !EnsurePhoneConv()) return 0;
+    WCHAR wsym[512]; wsym[0] = 0;
+    if (FAILED(g_phone->IdToPhone(ids, wsym))) return 0;    // -> space-separated syms, e.g. L"f r ay 1 d ey 2"
+    int n = 0, stressAt = -1; bool laterVowel = false;
+    char tok[16]; int tl = 0;
+    for (int i = 0; ; i++) {
+        WCHAR w = wsym[i];
+        if (w != L' ' && w != 0) { if (tl < 15) tok[tl++] = (char)towlower(w); continue; }
+        tok[tl] = 0;
+        if (tl) {
+            if (tok[0] == '1') stressAt = n;                    // boundary falls just AFTER the stressed vowel
+            else if (tok[0] == '2') { /* secondary: dropped ('\' is illegal in the value) */ }
+            else {
+                const PhMap* m = MapPhone(tok);
+                if (m) {
+                    if (m->vowel && stressAt >= 0) laterVowel = true;   // a syllable follows the stressed one
+                    for (const char* p = m->acu; *p && n < outsz-2; p++) out[n++] = *p;
+                }
+            }
+        }
+        tl = 0;
+        if (w == 0) break;
+    }
+    out[n] = 0;
+    // Human notation puts '/' right after the primary-stressed vowel (ha/re~, mo~tu|o~/lu),
+    // and only when another syllable follows -- monosyllables (be~t) take no boundary.
+    if (stressAt > 0 && stressAt < n && laterVowel && n < outsz-2) {
+        memmove(out+stressAt+1, out+stressAt, n-stressAt+1);
+        out[stressAt] = '/';
+        n++;
+    }
+    return n;
+}
+
 // ============================ the engine object ============================
 class CAcuRoger : public ISpTTSEngine, public ISpObjectWithToken
 {
@@ -154,16 +265,37 @@ STDMETHODIMP CAcuRoger::Speak(DWORD, REFGUID, const WAVEFORMATEX*,
     HANDLE  heap = GetProcessHeap();
     const int SIL = 350;                               // |u-law amplitude| below this = silence
 
-    // ---- 1) gather fragment text -> wide buffer + per-char source offsets ----
-    size_t wlen = 0;
-    for (const SPVTEXTFRAG* f = pFrag; f; f = f->pNext) wlen += f->ulTextLen;
-    if (wlen == 0) return S_OK;
-    wchar_t* wbuf   = (wchar_t*)HeapAlloc(heap, 0, (wlen + 1) * sizeof(wchar_t));
-    ULONG*   srcoff = (ULONG*)  HeapAlloc(heap, 0, (wlen + 1) * sizeof(ULONG));
+    // ---- 1) gather fragments -> wide buffer + per-char source offsets ----
+    // Text fragments copy through verbatim. A <pron sym="..."> arrives as an
+    // SPVA_Pronounce fragment with phonemes in State.pPhoneIds and EMPTY text; we turn
+    // it into avcore's \avprn= inline pronunciation tag + a nonce word to speak (see
+    // BuildAcuPron and the per-chunk tag flag in step 3). Count pron fragments to size
+    // the buffer for the injected tags.
+    size_t wlen = 0; unsigned nPron = 0;
+    for (const SPVTEXTFRAG* f = pFrag; f; f = f->pNext) {
+        wlen += f->ulTextLen;
+        if (f->State.eAction == SPVA_Pronounce && f->State.pPhoneIds && *f->State.pPhoneIds) nPron++;
+    }
+    if (wlen == 0 && nPron == 0) return S_OK;
+    const size_t PRONMAX = 128;                        // worst-case chars per injected \avprn tag + nonce
+    size_t cap = wlen + (size_t)nPron * PRONMAX + 1;
+    wchar_t* wbuf   = (wchar_t*)HeapAlloc(heap, 0, cap * sizeof(wchar_t));
+    ULONG*   srcoff = (ULONG*)  HeapAlloc(heap, 0, cap * sizeof(ULONG));
     if (!wbuf || !srcoff) { if(wbuf)HeapFree(heap,0,wbuf); if(srcoff)HeapFree(heap,0,srcoff); return E_OUTOFMEMORY; }
     size_t wpos = 0;
     for (const SPVTEXTFRAG* f = pFrag; f; f = f->pNext) {
-        for (ULONG j = 0; j < f->ulTextLen && f->pTextStart; j++) {
+        if (f->State.eAction == SPVA_Pronounce && f->State.pPhoneIds && *f->State.pPhoneIds) {
+            char pron[96];
+            if (BuildAcuPron(f->State.pPhoneIds, pron, sizeof(pron))) {
+                char tag[160];
+                int tn = _snprintf(tag, sizeof(tag), " \\avprn=%s=%s\\ %s ", AVPRN_NONCE, pron, AVPRN_NONCE);
+                for (int j = 0; j < tn && j >= 0 && wpos < cap-1; j++) {
+                    wbuf[wpos] = (wchar_t)(unsigned char)tag[j]; srcoff[wpos] = f->ulTextSrcOffset; wpos++;
+                }
+            }
+            continue;                                  // pron fragments carry no text
+        }
+        for (ULONG j = 0; j < f->ulTextLen && f->pTextStart && wpos < cap-1; j++) {
             wbuf[wpos]   = f->pTextStart[j];
             srcoff[wpos] = f->ulTextSrcOffset + j;
             wpos++;
@@ -220,7 +352,12 @@ STDMETHODIMP CAcuRoger::Speak(DWORD, REFGUID, const WAVEFORMATEX*,
         char* abuf = (char*)HeapAlloc(heap,0,abytes>0?abytes:1);
         WideCharToMultiByte(CP_ACP,0,wbuf+cs,-1,abuf,abytes,NULL,NULL);
         void* sbuf=NULL; unsigned slen=0;
-        EnterCriticalSection(&g_avLock); unsigned rc=g_synth(abuf,&sbuf,&slen,0); LeaveCriticalSection(&g_avLock);
+        // Enable avcore control-tag parsing (flags bit1) only for chunks that carry an
+        // injected \avprn tag. Tag-free text keeps flags=0 -> byte-identical to before,
+        // so stray backslashes in ordinary text can never be misread as tags.
+        unsigned char synflags = 0;
+        for (size_t j = cs; j < cs+cl; j++) if (wbuf[j] == L'\\') { synflags = 2; break; }
+        EnterCriticalSection(&g_avLock); unsigned rc=g_synth(abuf,&sbuf,&slen,synflags); LeaveCriticalSection(&g_avLock);
         HeapFree(heap,0,abuf);
         wbuf[cs+cl] = saved;
         if (rc != 0 || !sbuf) { if(sbuf){EnterCriticalSection(&g_avLock);g_free(&sbuf);LeaveCriticalSection(&g_avLock);} hr=E_FAIL; break; }
@@ -241,9 +378,9 @@ STDMETHODIMP CAcuRoger::Speak(DWORD, REFGUID, const WAVEFORMATEX*,
             for (size_t i = cs; i < cs+cl && nWords < MAXW; ) {
                 while (i < cs+cl && iswspace(wbuf[i])) i++;
                 if (i >= cs+cl) break;
-                size_t st = i; unsigned alnum = 0;
+                size_t st = i; unsigned alnum = 0; bool istag = (wbuf[i] == L'\\');
                 while (i < cs+cl && !iswspace(wbuf[i])) { if (iswalnum(wbuf[i])) alnum++; i++; }
-                if (alnum > 0) { wPos[nWords]=srcoff[st]; wLen[nWords]=(ULONG)(i-st); wBuf[nWords]=(ULONG)st; wWt[nWords]=alnum; nWords++; }
+                if (alnum > 0 && !istag) { wPos[nWords]=srcoff[st]; wLen[nWords]=(ULONG)(i-st); wBuf[nWords]=(ULONG)st; wWt[nWords]=alnum; nWords++; }
             }
             // weight each word by its actual synthesized duration (robust to expansion)
             for (unsigned k = 0; k < nWords; k++) {

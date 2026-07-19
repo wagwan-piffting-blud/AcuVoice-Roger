@@ -1,26 +1,15 @@
-// test_wasm.js - node smoke test for the WASM build. Reads the real installed data
-// via fs (case-insensitive on Windows), synthesizes, writes a WAV to compare vs fixtures.
+// test_wasm.js - node smoke test for the WASM build. Boots the engine reading its data
+// straight from the preloaded acu.data bundle (dictionaries + soundbank live in MEMFS),
+// synthesizes, and writes a WAV to compare against the native fixtures.
 //   node test_wasm.js "text" out.wav
 const fs = require('fs');
 const path = require('path');
 const AcuModule = require('../site/acu.js');
 
-const DATA_ROOT = 'C:/Program Files (x86)/AcuVoiceRoger/data';
-function mapUrl(url){ return path.join(DATA_ROOT, url.replace(/^data\//,'')); }
-
 let Module;
-const fdCache = {};
 const opts = {
-  locateFile: (p) => path.join(__dirname, '..', 'site', p),  // find acu.wasm / acu.data in ../site
-  acuFileSize: (url) => { try { return fs.statSync(mapUrl(url)).size; } catch(e){ return -1; } },
-  acuFileRead: (url, pos, len, dst) => {
-    const p = mapUrl(url);
-    const fd = fdCache[p] || (fdCache[p] = fs.openSync(p, 'r'));
-    const buf = Buffer.alloc(len);
-    const got = fs.readSync(fd, buf, 0, len, pos);
-    Module.HEAPU8.set(buf.subarray(0, got), dst);
-    return got;
-  }
+  // find acu.wasm / acu.data next to acu.js in ../site; Emscripten reads the .data via fs.
+  locateFile: (p) => path.join(__dirname, '..', 'site', p),
 };
 
 function ulawToPcm(u){ // standard G.711 µ-law decode

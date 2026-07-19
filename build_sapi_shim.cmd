@@ -14,6 +14,8 @@ where cl >nul 2>nul || (echo ERROR: VS2022 x86 toolset not found. Open an "x86 N
 
 cl /nologo /LD /MT /EHsc src\AcuRogerSAPI.cpp /Fe:AcuRogerSAPI.dll /Fo:src\AcuRogerSAPI.obj ^
    /link /DEF:src\AcuRogerSAPI.def sapi.lib ole32.lib advapi32.lib user32.lib uuid.lib
+REM check cl's own exit code -- do NOT trust "if exist DLL", a stale DLL masks a failed compile
+if errorlevel 1 (echo BUILD FAILED ^(compile/link error^) & del /q src\AcuRogerSAPI.obj >nul 2>nul & popd & exit /b 1)
 
 REM keep only the DLL at the repo root; drop import lib / exports / object
 del /q AcuRogerSAPI.lib AcuRogerSAPI.exp src\AcuRogerSAPI.obj >nul 2>nul

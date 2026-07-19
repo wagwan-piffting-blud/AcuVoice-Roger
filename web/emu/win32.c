@@ -19,7 +19,18 @@ void win32_dispatch(uint32_t va){
     int idx = (va - IMP_BASE) / IMP_STRIDE;
     if (idx < 0 || idx >= g_nimp || !g_imp[idx].fn){ fprintf(stderr,"** bad import dispatch idx=%d va=%08x\n",idx,va); CPU.halted=1; CPU.faulted=1; return; }
     g_shim_cleanup = g_imp[idx].argbytes;
+    /* Re-entrance fix (backported from _emu 2026-06-30, found in the spfy
+     * host_emu port of this CPU): if a shim drives cpu_run itself and the
+     * nested run dispatches more imports, the inner dispatches overwrite
+     * the file-global g_shim_cleanup. The outer cleanup then uses the
+     * stale value -> caller sees ESP misaligned -> its `ret N` epilogue
+     * pops a function arg as the return address -> wild branch.
+     * Roger's AvCore_acu DLL doesn't currently exercise this path (its
+     * init code doesn't dispatch nested imports), but the fix is
+     * preventative + behaviour-preserving. */
+    int saved_cleanup = g_shim_cleanup;
     g_imp[idx].fn();
+    g_shim_cleanup = saved_cleanup;
     uint32_t retaddr = rd32(CPU.r[ESP]);
     CPU.r[ESP] += 4 + g_shim_cleanup;
     CPU.eip = retaddr;
@@ -271,10 +282,15 @@ static const reg_t REG[] = {
 static void s_unimpl(void){ emu_log("** UNIMPLEMENTED import called (idx leak)\n"); CPU.halted=1; CPU.faulted=1; }
 
 int win32_register_import(const char* dll, const char* name){
-    (void)dll;
     shim_fn fn=s_unimpl; int argb=0; int found=0;
     for(const reg_t* r=REG; r->name; r++) if(!strcmp(r->name,name)){ fn=r->fn; argb=r->argb; found=1; break; }
     if(!found) fprintf(stderr,"** no shim for import %s!%s (will halt if called)\n",dll,name);
+    /* EMU_IATDUMP=1: print every import at pe_load time. Useful for scoping
+     * the shim surface when porting to a new DLL. Backported from _emu
+     * 2026-06-30 (the spfy host_emu port used this to enumerate
+     * SWIttsFe-en-US.dll's 85 imports). */
+    static int iatdump = -1; if (iatdump < 0) iatdump = getenv("EMU_IATDUMP") ? 1 : 0;
+    if (iatdump) fprintf(stderr, "[iat] %-12s ! %-30s %s\n", dll, name, found ? "" : "(unimpl)");
     int idx=g_nimp++;
     if(idx>=MAX_IMPORTS){ fprintf(stderr,"too many imports\n"); exit(1); }
     snprintf(g_imp[idx].name,sizeof g_imp[idx].name,"%s",name);

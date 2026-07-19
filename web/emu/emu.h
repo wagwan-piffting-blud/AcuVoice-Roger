@@ -92,6 +92,7 @@ typedef struct {
 
 extern pe_info_t PE;
 int      pe_load(const char* path);              // map sections, relocs, imports, TEB
+int      pe_load_mem(const uint8_t* bytes, uint32_t len);  // same, from in-memory bytes (WASM / embedded blob)
 uint32_t pe_get_export(const char* name);        // VA of an export by (decorated) name
 void     pe_run_dllmain(void);                   // call entry(DLL_PROCESS_ATTACH)
 

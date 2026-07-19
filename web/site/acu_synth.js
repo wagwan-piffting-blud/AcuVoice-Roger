@@ -15,16 +15,15 @@ let curSource = null;
 
 const $ = (id) => document.getElementById(id);
 function setStatus(msg, cls){ const s=$('status'); s.textContent = msg; s.className = 'status' + (cls?(' '+cls):''); }
-function fmtBytes(n){ return n<1024?n+' B' : n<1048576?(n/1024).toFixed(1)+' KB' : (n/1048576).toFixed(2)+' MB'; }
 
 function boot(){
-  setStatus('Loading engine (avcore_acu.dll)...');
+  setStatus('Loading engine + voicebank (~160 MB, one-time download)...');
   worker = new Worker('worker.js');
   worker.onmessage = (e)=>{
     const m = e.data;
     if(m.type === 'ready'){
       ready = m.ok;
-      if(m.ok){ setStatus('Ready - Roger is online. ('+fmtBytes(m.fetched)+' streamed)', 'ok'); $('speak').disabled=false; }
+      if(m.ok){ setStatus('Ready - Roger is online.', 'ok'); $('speak').disabled=false; }
       else setStatus('Engine failed to initialize.', 'err');
     } else if(m.type === 'audio'){
       onAudio(m);
@@ -64,7 +63,7 @@ function onAudio(m){
   curSource = src;
 
   const secs = (m.len/SR).toFixed(2);
-  setStatus(`Spoke ${m.len.toLocaleString()} samples (${secs}s) in ${m.ms.toFixed(0)} ms · ${fmtBytes(m.fetched)} streamed`, 'ok');
+  setStatus(`Spoke ${m.len.toLocaleString()} samples (${secs}s) in ${m.ms.toFixed(0)} ms`, 'ok');
   $('download').disabled = false;
 }
 

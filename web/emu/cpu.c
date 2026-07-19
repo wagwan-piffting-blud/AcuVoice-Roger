@@ -21,6 +21,23 @@ void cpu_reset(void){ memset(&CPU,0,sizeof CPU); CPU.eflags=0x202; CPU.fpu_cw=0x
 void cpu_push32(uint32_t v){ CPU.r[ESP]-=4; wr32(CPU.r[ESP], v); }
 uint32_t cpu_pop32(void){ uint32_t v=rd32(CPU.r[ESP]); CPU.r[ESP]+=4; return v; }
 
+// x87 FIST/FISTP/FRNDINT round per FPU control-word RC bits (10-11);
+// default 00 = round-to-nearest-even. Backported from _emu/cpu.c
+// 2026-06-30 — the C `(int)cast` truncates toward zero, x87 rounds
+// per the RC field, so any TTS code that does FRNDINT or FIST/FISTP
+// stores integer frame/sample counts with the wrong rounding mode →
+// off-by-one drift accumulates. Roger's prosody DSP is full of these.
+static double fpu_round_rc(double v){
+    int rc = (CPU.fpu_cw >> 10) & 3;
+    switch(rc){
+        case 0: return nearbyint(v);  // RNE (round to nearest even — the x87 default)
+        case 1: return floor(v);      // RD  (toward -inf)
+        case 2: return ceil(v);       // RU  (toward +inf)
+        case 3: return trunc(v);      // RZ  (toward zero)
+    }
+    return v;
+}
+
 // ---------------- fetch ----------------
 static uint8_t  fetch8(void){ uint8_t v=rd8(CPU.eip); CPU.eip++; return v; }
 static uint16_t fetch16(void){ uint16_t v=rd16(CPU.eip); CPU.eip+=2; return v; }
@@ -206,8 +223,8 @@ static int do_x87(uint8_t op){
                 break;
             case 0xDB: // FILD/FIST/FISTP m32, FLD/FSTP m80
                 if(reg==0){ int32_t v=(int32_t)rd32(a); fpush((double)v); return 1; }
-                if(reg==2){ int32_t v=(int32_t)*st(0); wr32(a,(uint32_t)v); return 1; }
-                if(reg==3){ int32_t v=(int32_t)*st(0); wr32(a,(uint32_t)v); fpop(); return 1; }
+                if(reg==2){ int32_t v=(int32_t)fpu_round_rc(*st(0)); wr32(a,(uint32_t)v); return 1; }   // FIST  m32 (per CW RC)
+                if(reg==3){ int32_t v=(int32_t)fpu_round_rc(*st(0)); wr32(a,(uint32_t)v); fpop(); return 1; }   // FISTP m32 (per CW RC)
                 if(reg==5){ /* FLD m80 -> approx via low 64 mantissa is hard; load as double from 80-bit */
                     uint64_t mant=rd32(a)|((uint64_t)rd32(a+4)<<32); uint16_t se=rd16(a+8);
                     int sign=(se>>15)&1; int exp=(se&0x7fff); double val;
@@ -218,10 +235,10 @@ static int do_x87(uint8_t op){
                 break;
             case 0xDF: // FILD/FIST/FISTP m16, FILD/FISTP m64
                 if(reg==0){ int16_t v=(int16_t)rd16(a); fpush((double)v); return 1; }
-                if(reg==2){ wr16(a,(uint16_t)(int16_t)*st(0)); return 1; }
-                if(reg==3){ wr16(a,(uint16_t)(int16_t)*st(0)); fpop(); return 1; }
+                if(reg==2){ wr16(a,(uint16_t)(int16_t)fpu_round_rc(*st(0))); return 1; }   // FIST  m16 (per CW RC)
+                if(reg==3){ wr16(a,(uint16_t)(int16_t)fpu_round_rc(*st(0))); fpop(); return 1; }   // FISTP m16 (per CW RC)
                 if(reg==5){ int64_t v=(int64_t)(rd32(a)|((uint64_t)rd32(a+4)<<32)); fpush((double)v); return 1; }
-                if(reg==7){ int64_t v=(int64_t)*st(0); wr32(a,(uint32_t)v); wr32(a+4,(uint32_t)((uint64_t)v>>32)); fpop(); return 1; }
+                if(reg==7){ int64_t v=(int64_t)fpu_round_rc(*st(0)); wr32(a,(uint32_t)v); wr32(a+4,(uint32_t)((uint64_t)v>>32)); fpop(); return 1; }   // FISTP m64 (per CW RC)
                 break;
             case 0xD8: case 0xDC: { // float arith with m32 (D8) / m64 (DC)
                 double b; if(op==0xD8){ uint32_t bb=rd32(a); float f; memcpy(&f,&bb,4); b=f; }
@@ -266,7 +283,27 @@ static int do_x87(uint8_t op){
                     case 0xE0:*st(0)=-*st(0);return 1;   // FCHS
                     case 0xE1:if(*st(0)<0)*st(0)=-*st(0);return 1; // FABS
                     case 0xE4:set_fcom(*st(0),0.0);return 1; // FTST
-                    case 0xE5:return 1;                  // FXAM (ignore)
+                    case 0xE5:{ // FXAM: classify ST(0) -> C3,C2,C1,C0 (MSVC exp/pow dispatch on this)
+                        // Backported from _emu/cpu.c 2026-06-30. Previous version was a no-op,
+                        // which silently mis-dispatched MSVC's `fxam; fnstsw; xlatb; jmp [table]`
+                        // pattern for certain inputs. AcuVoice's TTS uses pow/exp during prosody
+                        // and concat-cost evaluation, so this can produce audible artefacts.
+                        double v=*st(0); uint64_t bits; memcpy(&bits,&v,8);
+                        CPU.fpu_sw &= ~((1u<<8)|(1u<<9)|(1u<<10)|(1u<<14)); // clear C0,C1,C2,C3
+                        int sign = (bits >> 63) & 1;
+                        int exp  = (bits >> 52) & 0x7ff;
+                        uint64_t mant = bits & 0x000fffffffffffffull;
+                        int c3=0,c2=0,c0=0;
+                        if (exp == 0 && mant == 0) { c3=1; c2=0; c0=0; }            // zero
+                        else if (exp == 0x7ff && mant == 0) { c3=0; c2=1; c0=1; }   // infinity
+                        else if (exp == 0x7ff) { c3=0; c2=0; c0=1; }                // NaN
+                        else if (exp == 0) { c3=1; c2=1; c0=0; }                    // denormal
+                        else { c3=0; c2=1; c0=0; }                                  // normal
+                        if (c0) CPU.fpu_sw |= (1u<<8);
+                        if (sign) CPU.fpu_sw |= (1u<<9);   // C1 = sign
+                        if (c2) CPU.fpu_sw |= (1u<<10);
+                        if (c3) CPU.fpu_sw |= (1u<<14);
+                        return 1; }
                     case 0xE8:fpush(1.0);return 1;       // FLD1
                     case 0xE9:fpush(3.321928094887362);return 1; // FLDL2T
                     case 0xEA:fpush(1.442695040888963);return 1; // FLDL2E
@@ -279,8 +316,11 @@ static int do_x87(uint8_t op){
                     case 0xF2:*st(0)=tan(*st(0));fpush(1.0);return 1; // FPTAN
                     case 0xF3:{double y=*st(1),x=*st(0); fpop(); *st(0)=atan2(y,x); return 1;} // FPATAN
                     case 0xFA:*st(0)=sqrt(*st(0));return 1; // FSQRT
-                    case 0xFC:*st(0)=nearbyint(*st(0));return 1; // FRNDINT
-                    case 0xFD:{double s=*st(0); fpop(); *st(0)=ldexp(*st(0),(int)s); return 1;} // FSCALE
+                    case 0xFC:*st(0)=fpu_round_rc(*st(0));return 1; // FRNDINT (per CW RC, backported from _emu)
+                    // FSCALE: ST(0) = ST(0) * 2^trunc(ST(1)), NO POP.
+                    // Backported from _emu/cpu.c 2026-06-30. Previous version popped st(0) and
+                    // swapped operands -> broke pow/exp and drifted the FPU stack. Capstone-verified.
+                    case 0xFD:*st(0)=ldexp(*st(0),(int)*st(1));return 1; // FSCALE
                     case 0xFE:*st(0)=sin(*st(0));return 1; // FSIN
                     case 0xFF:*st(0)=cos(*st(0));return 1; // FCOS
                     case 0xD0:return 1;                  // FNOP

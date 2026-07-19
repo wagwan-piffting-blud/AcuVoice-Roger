@@ -1,5 +1,6 @@
 // vfs.c - NATIVE backend: guest file paths map directly to real disk files.
-// (The browser build swaps this file for a sync HTTP-Range backend; same API.)
+// (The browser build swaps this file for vfs_wasm.c, which does the same plain stdio
+//  against a data tree preloaded into Emscripten MEMFS from acu.data; same API.)
 #include "emu.h"
 #include <stdio.h>
 #include <stdlib.h>

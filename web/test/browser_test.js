@@ -1,6 +1,6 @@
 // browser_test.js - headless Chrome test of the REAL browser path:
-// Worker + WASM + synchronous Range-XHR VFS. Synthesizes the 3 fixtures in-browser and
-// compares the µ-law output byte-for-byte against the native golden WAVs.
+// Worker + WASM reading its data from the preloaded acu.data bundle. Synthesizes the 3
+// fixtures in-browser and compares the µ-law output byte-for-byte against the native golden WAVs.
 const http = require('http'), fs = require('fs'), path = require('path');
 const puppeteer = require('puppeteer-core');
 

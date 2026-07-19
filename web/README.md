@@ -15,14 +15,17 @@ to the desktop voice (verified against golden reference WAVs from the native DLL
 text ─► [ WASM x86 emulator running avcore_acu.dll ]
               ├─ PE loader maps the DLL, runs its C-runtime + DllMain
               ├─ ~70 Win32 API shims (heap, INI, file I/O, ...)
-              ├─ file I/O ─► HTTP Range fetches of the soundbank (cached 256 KB blocks)
+              ├─ file I/O ─► reads from the data tree preloaded into acu.data (MEMFS)
               └─ calls _txtstr_to_sndbuf(text) ─► 8 kHz µ-law
        ─► µ-law → PCM16 → Web Audio API   (+ .wav download)
 ```
 
-The 160 MB soundbank is **streamed on demand** via HTTP range requests (GitHub Pages supports them),
-so a session pulls only ~1–2 MB - the index tables plus the specific units a sentence uses.
-Everything runs in a Web Worker (synchronous range XHR is allowed there).
+`acu.data` is a **self-contained bundle**: `build_wasm.ps1` preloads the DLL *and* the entire
+data tree (dictionaries + the ~160 MB soundbank) into Emscripten's in-memory FS, so the whole
+voice ships in one file - no separate `data/` directory to deploy and no HTTP-Range support
+required from the host. The page downloads `acu.data` once up front (a ~156 MB one-time load,
+browser-cached thereafter); after that, synthesis reads its files straight from MEMFS with no
+network I/O. Everything runs in a Web Worker.
 
 ## Layout
 
@@ -34,12 +37,12 @@ Everything runs in a Web Worker (synchronous range XHR is allowed there).
 | `emu/cpu.c` | 32-bit x86 interpreter (+ partial x87) |
 | `emu/loader.c` | PE32 loader (sections, relocations, imports, TEB/PEB) |
 | `emu/win32.c` | Win32 import shims + guest heap + import dispatch |
-| `emu/vfs.c` / `emu/vfs_wasm.c` | File backends: native disk / browser Range-fetch |
+| `emu/vfs.c` / `emu/vfs_wasm.c` | File backends: native disk / preloaded MEMFS (both plain stdio) |
 | `emu/host.c`, `emu/wasm_main.c` | Boot + `acu_synth` orchestration; Emscripten exports |
 | `emu/main_native.c` | Native test driver (writes a WAV) |
 | `native/acu_say.c` | Reference harness: drives the real DLL + traces its file I/O |
 | `native/fixtures/` | Golden reference WAVs + I/O traces (the validation oracle) |
-| `site/` | The deployed page: `index.html`, `app.js`, `worker.js` (+ built `acu.*`, `data/`) |
+| `site/` | The deployed page: `index.html`, `app.js`, `worker.js` (+ built `acu.*`; `data/` is a build-time staging dir folded into `acu.data`) |
 | `test/` | Headless-Chrome browser test (puppeteer-core) |
 
 ## Build & test (Windows, from PowerShell)
@@ -52,23 +55,26 @@ cd web/native;  ./build_native.bat;  ./acu_say.exe "Hello." out.wav
 cd ../emu;  ./build_emu.bat;  ./acu_emu.exe "Hello." emu_out.wav
 
 # 3) Compile the emulator to WebAssembly  (-> ../site/acu.{js,wasm,data})
+#    Auto-stages the lowercased data tree (prep_data.ps1) then folds it into acu.data.
 ./build_wasm.ps1
-node test_wasm.js "one two three" wasm_out.wav      # node smoke test vs real data
+node test_wasm.js "one two three" wasm_out.wav      # node smoke test: reads data from the bundle
 
-# 4) Assemble the local data tree (lowercased) and run the headless browser test
-cd ..;  ./prep_data.ps1
+# 4) Headless browser test (data already inside acu.data from step 3)
+cd ..
 npm install puppeteer-core
 node test/browser_test.js                            # synthesizes in real Chrome, compares to fixtures
 
-# 5) Serve locally (Range-capable static server)
+# 5) Serve locally (any plain static server - acu.data is self-contained, no Range needed)
 node test/server.js 8753 site                        # open http://localhost:8753
 ```
 
 ## Deployment
 
-`.github/workflows/wasm.yml` builds the WASM, assembles the lowercased soundbank/dictionaries
-from `data/`, and publishes `web/site/` to **GitHub Pages**. Enable Pages → *Source: GitHub Actions*.
-Built artifacts (`acu.*`) and the local `site/data/` copy are gitignored; CI regenerates them.
+`.github/workflows/wasm.yml` builds the WASM (which folds the lowercased soundbank/dictionaries
+from `data/` into a self-contained `acu.data`) and publishes `web/site/` to **GitHub Pages**.
+Enable Pages → *Source: GitHub Actions*. Built artifacts (`acu.*`) and the local `site/data/`
+staging copy are gitignored; CI regenerates them. Because the voice ships inside `acu.data`, any
+static host works - GitHub Pages Range support is no longer a requirement.
 
 ## Fidelity notes
 

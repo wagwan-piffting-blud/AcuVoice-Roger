@@ -24,10 +24,30 @@ void     mem_read_file_str(uint32_t rva, char* out, int n);
 int pe_load(const char* path) {
     FILE* f = fopen(path, "rb");
     if (!f) { fprintf(stderr, "pe_load: cannot open %s\n", path); return -1; }
-    fseek(f, 0, SEEK_END); g_filesz = ftell(f); fseek(f, 0, SEEK_SET);
-    g_file = (uint8_t*)malloc(g_filesz);
-    if (fread(g_file, 1, g_filesz, f) != (size_t)g_filesz) { fclose(f); return -1; }
+    fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
+    if (sz <= 0) { fclose(f); fprintf(stderr, "pe_load: empty file\n"); return -1; }
+    uint8_t* buf = (uint8_t*)malloc((size_t)sz);
+    if (!buf) { fclose(f); return -1; }
+    if (fread(buf, 1, (size_t)sz, f) != (size_t)sz) { fclose(f); free(buf); return -1; }
     fclose(f);
+    int rc = pe_load_mem(buf, (uint32_t)sz);
+    free(buf);   /* pe_load_mem copies into g_file */
+    return rc;
+}
+
+/* pe_load_mem(bytes, len) — load a PE32 from an in-memory buffer.
+ * Backported from _emu/loader.c 2026-06-30 (the spfy host_emu port needed
+ * this for its embedded-DLL boot path; AcuVoice's WASM build already
+ * effectively does the same thing in `host.c` via Emscripten preload,
+ * but exposing the in-memory entry as a public API matches emu.h's
+ * existing prototype and lets future hosts skip the fopen dance.
+ * Caller retains ownership of `bytes`. */
+int pe_load_mem(const uint8_t* bytes, uint32_t len) {
+    if (!bytes || len < 0x40) { fprintf(stderr, "pe_load_mem: too small (%u)\n", len); return -1; }
+    g_file = (uint8_t*)malloc(len);
+    if (!g_file) { fprintf(stderr, "pe_load_mem: OOM\n"); return -1; }
+    memcpy(g_file, bytes, len);
+    g_filesz = (long)len;
 
     if (rd16f(0) != 0x5A4D) { fprintf(stderr, "not MZ\n"); return -1; }
     uint32_t e_lfanew = rd32f(0x3c);
