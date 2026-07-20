@@ -18,7 +18,7 @@ function setStatus(msg, cls){ const s=$('status'); s.textContent = msg; s.classN
 
 function boot(){
   setStatus('Loading engine + voicebank (~160 MB, one-time download)...');
-  worker = new Worker('worker.js');
+  worker = new Worker('acu_worker.js');
   worker.onmessage = (e)=>{
     const m = e.data;
     if(m.type === 'ready'){
